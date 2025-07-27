@@ -1,0 +1,652 @@
+<script type="text/javascript">
+        var gk_isXlsx = false;
+        var gk_xlsxFileLookup = {};
+        var gk_fileData = {};
+        function filledCell(cell) {
+          return cell !== '' && cell != null;
+        }
+        function loadFileData(filename) {
+        if (gk_isXlsx && gk_xlsxFileLookup[filename]) {
+            try {
+                var workbook = XLSX.read(gk_fileData[filename], { type: 'base64' });
+                var firstSheetName = workbook.SheetNames[0];
+                var worksheet = workbook.Sheets[firstSheetName];
+
+                // Convert sheet to JSON to filter blank rows
+                var jsonData = XLSX.utils.sheet_to_json(worksheet, { header: 1, blankrows: false, defval: '' });
+                // Filter out blank rows (rows where all cells are empty, null, or undefined)
+                var filteredData = jsonData.filter(row => row.some(filledCell));
+
+                // Heuristic to find the header row by ignoring rows with fewer filled cells than the next row
+                var headerRowIndex = filteredData.findIndex((row, index) =>
+                  row.filter(filledCell).length >= filteredData[index + 1]?.filter(filledCell).length
+                );
+                // Fallback
+                if (headerRowIndex === -1 || headerRowIndex > 25) {
+                  headerRowIndex = 0;
+                }
+
+                // Convert filtered JSON back to CSV
+                var csv = XLSX.utils.aoa_to_sheet(filteredData.slice(headerRowIndex)); // Create a new sheet from filtered array of arrays
+                csv = XLSX.utils.sheet_to_csv(csv, { header: 1 });
+                return csv;
+            } catch (e) {
+                console.error(e);
+                return "";
+            }
+        }
+        return gk_fileData[filename] || "";
+        }
+        </script><!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flashcards by Ritesh Das</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&family=Roboto+Mono:wght@700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            font-family: 'Poppins', sans-serif;
+            overflow-x: hidden;
+        }
+        .flashcard {
+            perspective: 1000px;
+            width: 320px;
+            height: 480px;
+            margin: 15px;
+            cursor: pointer;
+        }
+        .flashcard-inner {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            transition: transform 0.6s;
+            transform-style: preserve-3d;
+        }
+        .flashcard.flipped .flashcard-inner {
+            transform: rotateY(180deg);
+        }
+        .flashcard-front, .flashcard-back {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            border-radius: 15px;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.5), 0 0 40px rgba(0, 255, 255, 0.3);
+            background: #0f172a;
+            border: 2px solid #00f6ff;
+            animation: neon-glow 1.5s ease-in-out infinite alternate;
+        }
+        .flashcard-back {
+            transform: rotateY(180deg);
+            background: #1e293b;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+        }
+        @keyframes neon-glow {
+            from {
+                box-shadow: 0 0 10px rgba(0, 255, 255, 0.3), 0 0 20px rgba(0, 255, 255, 0.2);
+            }
+            to {
+                box-shadow: 0 0 20px rgba(0, 255, 255, 0.8), 0 0 40px rgba(0, 255, 255, 0.5);
+            }
+        }
+        .question {
+            font-family: 'Roboto Mono', monospace;
+            color: #00f6ff;
+            font-size: 1.25rem;
+            font-weight: 600;
+        }
+        .options {
+            color: #e0e0e0;
+            font-size: 1rem;
+        }
+        .options li {
+            margin: 10px 0;
+        }
+        .answer {
+            font-family: 'Roboto Mono', monospace;
+            color: #00f6ff;
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+        .container {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+            justify-content: center;
+            padding: 40px;
+            max-width: 1020px;
+            margin: 0 auto;
+        }
+        h1 {
+            font-family: 'Roboto Mono', monospace;
+            color: #00f6ff;
+            text-align: center;
+            text-shadow: 0 0 10px rgba(0, 255, 255, 0.8);
+            margin-bottom: 20px;
+            font-size: 2.5rem;
+            animation: title-glow 2s ease-in-out infinite alternate;
+        }
+        @keyframes title-glow {
+            from {
+                text-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
+            }
+            to {
+                text-shadow: 0 0 20px rgba(0, 255, 255, 1);
+            }
+        }
+        footer {
+            text-align: center;
+            color: #e0e0e0;
+            padding: 20px;
+            font-size: 1rem;
+        }
+        footer a {
+            color: #00f6ff;
+            text-decoration: none;
+            margin: 0 10px;
+        }
+        footer a:hover {
+            text-decoration: underline;
+        }
+    </style>
+</head>
+<body>
+    <h1>Flashcards by Ritesh Das</h1>
+    <div class="container">
+        <div class="flashcard" onclick="this.classList.toggle('flipped')">
+            <div class="flashcard-inner">
+                <div class="flashcard-front">
+                    <div class="question">1. Which of the following is a type of asexual reproduction in Spirogyra?</div>
+                    <ul class="options">
+                        <li>a) Budding</li>
+                        <li>b) Fragmentation</li>
+                        <li>c) Binary fission</li>
+                        <li>d) Spore formation</li>
+                    </ul>
+                </div>
+                <div class="flashcard-back">
+                    <div class="answer">Answer: b) Fragmentation</div>
+                </div>
+            </div>
+        </div>
+        <div class="flashcard" onclick="this.classList.toggle('flipped')">
+            <div class="flashcard-inner">
+                <div class="flashcard-front">
+                    <div class="question">2. Which plant reproduces through leaf in vegetative propagation?</div>
+                    <ul class="options">
+                        <li>a) Rose</li>
+                        <li>b) Dahlia</li>
+                        <li>c) Bryophyllum</li>
+                        <li>d) Potato</li>
+                    </ul>
+                </div>
+                <div class="flashcard-back">
+                    <div class="answer">Answer: c) Bryophyllum</div>
+                </div>
+            </div>
+        </div>
+        <div class="flashcard" onclick="this.classList.toggle('flipped')">
+            <div class="flashcard-inner">
+                <div class="flashcard-front">
+                    <div class="question">3. Grafting is commonly used in the propagation of which plant?</div>
+                    <ul class="options">
+                        <li>a) Rice</li>
+                        <li>b) Mango</li>
+                        <li>c) Apple</li>
+                        <li>d) Cactus</li>
+                    </ul>
+                </div>
+                <div class="flashcard-back">
+                    <div class="answer">Answer: c) Apple</div>
+                </div>
+            </div>
+        </div>
+        <div class="flashcard" onclick="this.classList.toggle('flipped')">
+            <div class="flashcard-inner">
+                <div class="flashcard-front">
+                    <div class="question">4. Which is the male reproductive part of a flower?</div>
+                    <ul class="options">
+                        <li>a) Ovary</li>
+                        <li>b) Gynoecium</li>
+                        <li>c) Corolla</li>
+                        <li>d) Androecium</li>
+                    </ul>
+                </div>
+                <div class="flashcard-back">
+                    <div class="answer">Answer: d) Androecium</div>
+                </div>
+            </div>
+        </div>
+        <div class="flashcard" onclick="this.classList.toggle('flipped')">
+            <div class="flashcard-inner">
+                <div class="flashcard-front">
+                    <div class="question">5. Which layer of the anther wall nourishes the developing pollen grains?</div>
+                    <ul class="options">
+                        <li>a) Epidermis</li>
+                        <li>b) Middle layer</li>
+                        <li>c) Tapetum</li>
+                        <li>d) Endothecium</li>
+                    </ul>
+                </div>
+                <div class="flashcard-back">
+                    <div class="answer">Answer: c) Tapetum</div>
+                </div>
+            </div>
+        </div>
+        <div class="flashcard" onclick="this.classList.toggle('flipped')">
+            <div class="flashcard-inner">
+                <div class="flashcard-front">
+                    <div class="question">6. The outer layer of the pollen grain is made of:</div>
+                    <ul class="options">
+                        <li>a) Cellulose</li>
+                        <li>b) Sporopollenin</li>
+                        <li>c) Pectin</li>
+                        <li>d) Lignin</li>
+                    </ul>
+                </div>
+                <div class="flashcard-back">
+                    <div class="answer">Answer: b) Sporopollenin</div>
+                </div>
+            </div>
+        </div>
+        <div class="flashcard" onclick="this.classList.toggle('flipped')">
+            <div class="flashcard-inner">
+                <div class="flashcard-front">
+                    <div class="question">7. Which part of the ovule acts as the opening for entry of pollen tube?</div>
+                    <ul class="options">
+                        <li>a) Chalaza</li>
+                        <li>b) Hilum</li>
+                        <li>c) Micropyle</li>
+                        <li>d) Funiculus</li>
+                    </ul>
+                </div>
+                <div class="flashcard-back">
+                    <div class="answer">Answer: c) Micropyle</div>
+                </div>
+            </div>
+        </div>
+        <div class="flashcard" onclick="this.classList.toggle('flipped')">
+            <div class="flashcard-inner">
+                <div class="flashcard-front">
+                    <div class="question">8. The development of embryo from a single megaspore is called:</div>
+                    <ul class="options">
+                        <li>a) Apospory</li>
+                        <li>b) Apogamy</li>
+                        <li>c) Monosporic</li>
+                        <li>d) Polyembryony</li>
+                    </ul>
+                </div>
+                <div class="flashcard-back">
+                    <div class="answer">Answer: c) Monosporic</div>
+                </div>
+            </div>
+        </div>
+        <div class="flashcard" onclick="this.classList.toggle('flipped')">
+            <div class="flashcard-inner">
+                <div class="flashcard-front">
+                    <div class="question">9. How many cells and nuclei are present in a mature embryo sac?</div>
+                    <ul class="options">
+                        <li>a) 6 cells, 8 nuclei</li>
+                        <li>b) 7 cells, 8 nuclei</li>
+                        <li>c) 8 cells, 8 nuclei</li>
+                        <li>d) 7 cells, 7 nuclei</li>
+                    </ul>
+                </div>
+                <div class="flashcard-back">
+                    <div class="answer">Answer: b) 7 cells, 8 nuclei</div>
+                </div>
+            </div>
+        </div>
+        <div class="flashcard" onclick="this.classList.toggle('flipped')">
+            <div class="flashcard-inner">
+                <div class="flashcard-front">
+                    <div class="question">10. Pollination by water is known as:</div>
+                    <ul class="options">
+                        <li>a) Entomophily</li>
+                        <li>b) Anemophily</li>
+                        <li>c) Hydrophily</li>
+                        <li>d) Ornithophily</li>
+                    </ul>
+                </div>
+                <div class="flashcard-back">
+                    <div class="answer">Answer: c) Hydrophily</div>
+                </div>
+            </div>
+        </div>
+        <div class="flashcard" onclick="this.classList.toggle('flipped')">
+            <div class="flashcard-inner">
+                <div class="flashcard-front">
+                    <div class="question">11. Autogamy refers to:</div>
+                    <ul class="options">
+                        <li>a) Cross-pollination</li>
+                        <li>b) Self-pollination within same flower</li>
+                        <li>c) Pollination between different species</li>
+                        <li>d) Asexual reproduction</li>
+                    </ul>
+                </div>
+                <div class="flashcard-back">
+                    <div class="answer">Answer: b) Self-pollination within same flower</div>
+                </div>
+            </div>
+        </div>
+        <div class="flashcard" onclick="this.classList.toggle('flipped')">
+            <div class="flashcard-inner">
+                <div class="flashcard-front">
+                    <div class="question">12. Geitonogamy is functionally cross-pollination but genetically:</div>
+                    <ul class="options">
+                        <li>a) Like apomixis</li>
+                        <li>b) Like autogamy</li>
+                        <li>c) Like syngamy</li>
+                        <li>d) Like xenogamy</li>
+                    </ul>
+                </div>
+                <div class="flashcard-back">
+                    <div class="answer">Answer: b) Like autogamy</div>
+                </div>
+            </div>
+        </div>
+        <div class="flashcard" onclick="this.classList.toggle('flipped')">
+            <div class="flashcard-inner">
+                <div class="flashcard-front">
+                    <div class="question">13. Pollination in Vallisneria is an example of:</div>
+                    <ul class="options">
+                        <li>a) Hypohydrophily</li>
+                        <li>b) Epihydrophily</li>
+                        <li>c) Entomophily</li>
+                        <li>d) Anemophily</li>
+                    </ul>
+                </div>
+                <div class="flashcard-back">
+                    <div class="answer">Answer: b) Epihydrophily</div>
+                </div>
+            </div>
+        </div>
+        <div class="flashcard" onclick="this.classList.toggle('flipped')">
+            <div class="flashcard-inner">
+                <div class="flashcard-front">
+                    <div class="question">14. Which of these prevents self-pollination?</div>
+                    <ul class="options">
+                        <li>a) Homogamy</li>
+                        <li>b) Cleistogamy</li>
+                        <li>c) Herkogamy</li>
+                        <li>d) Chasmogamy</li>
+                    </ul>
+                </div>
+                <div class="flashcard-back">
+                    <div class="answer">Answer: c) Herkogamy</div>
+                </div>
+            </div>
+        </div>
+        <div class="flashcard" onclick="this.classList.toggle('flipped')">
+            <div class="flashcard-inner">
+                <div class="flashcard-front">
+                    <div class="question">15. The fusion of male gamete and secondary nucleus is called:</div>
+                    <ul class="options">
+                        <li>a) Syngamy</li>
+                        <li>b) Triple fusion</li>
+                        <li>c) Fertilization</li>
+                        <li>d) Gametogenesis</li>
+                    </ul>
+                </div>
+                <div class="flashcard-back">
+                    <div class="answer">Answer: b) Triple fusion</div>
+                </div>
+            </div>
+        </div>
+        <div class="flashcard" onclick="this.classList.toggle('flipped')">
+            <div class="flashcard-inner">
+                <div class="flashcard-front">
+                    <div class="question">16. Double fertilization is a characteristic feature of:</div>
+                    <ul class="options">
+                        <li>a) Gymnosperms</li>
+                        <li>b) Bryophytes</li>
+                        <li>c) Angiosperms</li>
+                        <li>d) Algae</li>
+                    </ul>
+                </div>
+                <div class="flashcard-back">
+                    <div class="answer">Answer: c) Angiosperms</div>
+                </div>
+            </div>
+        </div>
+        <div class="flashcard" onclick="this.classList.toggle('flipped')">
+            <div class="flashcard-inner">
+                <div class="flashcard-front">
+                    <div class="question">17. Endosperm formed without cell walls initially is of which type?</div>
+                    <ul class="options">
+                        <li>a) Helobial</li>
+                        <li>b) Cellular</li>
+                        <li>c) Nuclear</li>
+                        <li>d) Mosaic</li>
+                    </ul>
+                </div>
+                <div class="flashcard-back">
+                    <div class="answer">Answer: c) Nuclear</div>
+                </div>
+            </div>
+        </div>
+        <div class="flashcard" onclick="this.classList.toggle('flipped')">
+            <div class="flashcard-inner">
+                <div class="flashcard-front">
+                    <div class="question">18. What is the ploidy of endosperm in angiosperms?</div>
+                    <ul class="options">
+                        <li>a) Haploid</li>
+                        <li>b) Diploid</li>
+                        <li>c) Triploid</li>
+                        <li>d) Tetraploid</li>
+                    </ul>
+                </div>
+                <div class="flashcard-back">
+                    <div class="answer">Answer: c) Triploid</div>
+                </div>
+            </div>
+        </div>
+        <div class="flashcard" onclick="this.classList.toggle('flipped')">
+            <div class="flashcard-inner">
+                <div class="flashcard-front">
+                    <div class="question">19. In monocot seeds, the single cotyledon is called:</div>
+                    <ul class="options">
+                        <li>a) Plumule</li>
+                        <li>b) Coleoptile</li>
+                        <li>c) Scutellum</li>
+                        <li>d) Coleorhiza</li>
+                    </ul>
+                </div>
+                <div class="flashcard-back">
+                    <div class="answer">Answer: c) Scutellum</div>
+                </div>
+            </div>
+        </div>
+        <div class="flashcard" onclick="this.classList.toggle('flipped')">
+            <div class="flashcard-inner">
+                <div class="flashcard-front">
+                    <div class="question">20. Which fruit is naturally parthenocarpic?</div>
+                    <ul class="options">
+                        <li>a) Apple</li>
+                        <li>b) Banana</li>
+                        <li>c) Mango</li>
+                        <li>d) Grape</li>
+                    </ul>
+                </div>
+                <div class="flashcard-back">
+                    <div class="answer">Answer: b) Banana</div>
+                </div>
+            </div>
+        </div>
+        <div class="flashcard" onclick="this.classList.toggle('flipped')">
+            <div class="flashcard-inner">
+                <div class="flashcard-front">
+                    <div class="question">21. Which hormone is involved in inducing parthenocarpy?</div>
+                    <ul class="options">
+                        <li>a) Cytokinin</li>
+                        <li>b) ABA</li>
+                        <li>c) IAA (Auxin)</li>
+                        <li>d) Ethylene</li>
+                    </ul>
+                </div>
+                <div class="flashcard-back">
+                    <div class="answer">Answer: c) IAA (Auxin)</div>
+                </div>
+            </div>
+        </div>
+        <div class="flashcard" onclick="this.classList.toggle('flipped')">
+            <div class="flashcard-inner">
+                <div class="flashcard-front">
+                    <div class="question">22. Embryo development without fertilization is known as:</div>
+                    <ul class="options">
+                        <li>a) Apomixis</li>
+                        <li>b) Syngamy</li>
+                        <li>c) Triple fusion</li>
+                        <li>d) Fertilization</li>
+                    </ul>
+                </div>
+                <div class="flashcard-back">
+                    <div class="answer">Answer: a) Apomixis</div>
+                </div>
+            </div>
+        </div>
+        <div class="flashcard" onclick="this.classList.toggle('flipped')">
+            <div class="flashcard-inner">
+                <div class="flashcard-front">
+                    <div class="question">23. Polyembryony was first discovered in which plant genus?</div>
+                    <ul class="options">
+                        <li>a) Mangifera</li>
+                        <li>b) Citrus</li>
+                        <li>c) Nicotiana</li>
+                        <li>d) Capsella</li>
+                    </ul>
+                </div>
+                <div class="flashcard-back">
+                    <div class="answer">Answer: b) Citrus</div>
+                </div>
+            </div>
+        </div>
+        <div class="flashcard" onclick="this.classList.toggle('flipped')">
+            <div class="flashcard-inner">
+                <div class="flashcard-front">
+                    <div class="question">24. Seed in coconut is:</div>
+                    <ul class="options">
+                        <li>a) Non-albuminous</li>
+                        <li>b) Albuminous</li>
+                        <li>c) Viviparous</li>
+                        <li>d) Polyembryonic</li>
+                    </ul>
+                </div>
+                <div class="flashcard-back">
+                    <div class="answer">Answer: b) Albuminous</div>
+                </div>
+            </div>
+        </div>
+        <div class="flashcard" onclick="this.classList.toggle('flipped')">
+            <div class="flashcard-inner">
+                <div class="flashcard-front">
+                    <div class="question">25. Micropyle helps in:</div>
+                    <ul class="options">
+                        <li>a) Formation of embryo</li>
+                        <li>b) Entry of pollen tube</li>
+                        <li>c) Growth of cotyledons</li>
+                        <li>d) Absorption of water only</li>
+                    </ul>
+                </div>
+                <div class="flashcard-back">
+                    <div class="answer">Answer: b) Entry of pollen tube</div>
+                </div>
+            </div>
+        </div>
+        <div class="flashcard" onclick="this.classList.toggle('flipped')">
+            <div class="flashcard-inner">
+                <div class="flashcard-front">
+                    <div class="question">26. Chalazogamy refers to entry of pollen tube through:</div>
+                    <ul class="options">
+                        <li>a) Micropyle</li>
+                        <li>b) Chalaza</li>
+                        <li>c) Hilum</li>
+                        <li>d) Funicle</li>
+                    </ul>
+                </div>
+                <div class="flashcard-back">
+                    <div class="answer">Answer: b) Chalaza</div>
+                </div>
+            </div>
+        </div>
+        <div class="flashcard" onclick="this.classList.toggle('flipped')">
+            <div class="flashcard-inner">
+                <div class="flashcard-front">
+                    <div class="question">27. The fusion of two polar nuclei forms:</div>
+                    <ul class="options">
+                        <li>a) Syngamy</li>
+                        <li>b) Zygote</li>
+                        <li>c) Secondary nucleus</li>
+                        <li>d) Triploid endosperm</li>
+                    </ul>
+                </div>
+                <div class="flashcard-back">
+                    <div class="answer">Answer: c) Secondary nucleus</div>
+                </div>
+            </div>
+        </div>
+        <div class="flashcard" onclick="this.classList.toggle('flipped')">
+            <div class="flashcard-inner">
+                <div class="flashcard-front">
+                    <div class="question">28. The product of fertilization between male gamete and egg is:</div>
+                    <ul class="options">
+                        <li>a) Endosperm</li>
+                        <li>b) Embryo</li>
+                        <li>c) Ovule</li>
+                        <li>d) Fruit</li>
+                    </ul>
+                </div>
+                <div class="flashcard-back">
+                    <div class="answer">Answer: b) Embryo</div>
+                </div>
+            </div>
+        </div>
+        <div class="flashcard" onclick="this.classList.toggle('flipped')">
+            <div class="flashcard-inner">
+                <div class="flashcard-front">
+                    <div class="question">29. The function of filiform apparatus is to:</div>
+                    <ul class="options">
+                        <li>a) Prevent pollen entry</li>
+                        <li>b) Nourish the zygote</li>
+                        <li>c) Guide pollen tube</li>
+                        <li>d) Protect ovule</li>
+                    </ul>
+                </div>
+                <div class="flashcard-back">
+                    <div class="answer">Answer: c) Guide pollen tube</div>
+                </div>
+            </div>
+        </div>
+        <div class="flashcard" onclick="this.classList.toggle('flipped')">
+            <div class="flashcard-inner">
+                <div class="flashcard-front">
+                    <div class="question">30. Which of the following is not involved in artificial hybridization?</div>
+                    <ul class="options">
+                        <li>a) Emasculation</li>
+                        <li>b) Bagging</li>
+                        <li>c) Scion grafting</li>
+                        <li>d) Hand pollination</li>
+                    </ul>
+                </div>
+                <div class="flashcard-back">
+                    <div class="answer">Answer: c) Scion grafting</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <footer>
+        📱 <a href="https://whatsapp.com/channel/0029Vb5vGJp59PwYUO6GIn3G" target="_blank">WhatsApp Channel</a> |
+        ☎️ <a href="tel:+919321844566">9321844566</a> |
+        📸 <a href="https://www.instagram.com/scie.nceanimator?utm_source=ig_web_button_share_sheet&igsh=MTllNWU1bmtydTJ3MQ==" target="_blank">Instagram</a>
+    </footer>
+</body>
+</html>
